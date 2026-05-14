@@ -1,0 +1,69 @@
+# Environment variables (MOST IMPORTANT)
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Debug logs
+logs/
+*.log
+winston.log
+
+# MongoDB files
+dump/
+mongodump/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment specific
+.env.backup
+.env.*.backup
+*.pem
+*.key
+*.crt
+
+# Squad API local cache
+.squad_cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage files
+coverage/
+.nyc_output/
+
+# Misc
+*.bak
+*.log
+*.seed
+*.pid
+*.gz
