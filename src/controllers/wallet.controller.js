@@ -62,11 +62,13 @@ const getBalance = async (req, res, next) => {
     const credits = await Transaction.find({
       customerIdentifier: user.customerIdentifier,
       transactionType: { $ne: "Transfer" },
+      status: "success",
     });
 
     const debits = await Transaction.find({
       customerIdentifier: user.customerIdentifier,
       transactionType: "Transfer",
+      status: "success",
     });
 
     const totalIn = credits.reduce((s, t) => s + (t.merchantAmount || 0), 0);
@@ -133,6 +135,35 @@ const sendMoney = async (req, res, next) => {
       transactionReference,
     });
 
+    if (
+      transfer?.status === 424 ||
+      transfer?.data?.transaction_status === "pending"
+    ) {
+      const requery = await squadService.requeryTransfer(
+        transactionReference
+      );
+
+      return success(
+        res,
+        {
+          pending: true,
+          requery,
+        },
+        "Transfer is processing"
+      );
+    }
+
+    await Transaction.create({
+      customerIdentifier: req.user.customerIdentifier,
+      transactionReference,
+      transactionType: "Transfer",
+      amount: nairaToKobo(amount),
+      remarks: note || "EcoLink transfer",
+      recipientAccount: accountNumber,
+      recipientName: accountName || lookup.data.account_name,
+      status: "success",
+    });
+
     return success(res, {
       transactionReference,
       recipientName: lookup.data.account_name,
@@ -161,6 +192,22 @@ const lookupAccount = async (req, res, next) => {
   }
 };
 
+const getBanks = async (req, res) => {
+  try {
+    const response = await squadService.getBanks();
+
+    return success(
+      res,
+      response?.data || [],
+      "Banks fetched successfully"
+    );
+  } catch (err) {
+    const { status, message, raw } = extractAxiosError(err);
+
+    return error(res, message, status, raw);
+  }
+};
+
 /**
  * POST /api/wallet/payment-link
  * Generate a shareable payment link — used in /wallet/receive.
@@ -171,18 +218,24 @@ const createPaymentLink = async (req, res, next) => {
     const user = req.user;
     const { amount, description } = req.body;
 
-    const hash = uuidv4().replace(/-/g, "").slice(0, 16);
+    const transactionReference = generateTransactionRef("PYLINK");
 
     const data = await squadService.createPaymentLink({
-      name: user.fullName || user.phone,
-      hash,
       amount: nairaToKobo(amount),
-      description: description || `Pay ${user.fullName || user.phone} via EcoLink`,
-      redirectLink: `${process.env.FRONTEND_URL}/wallet`,
-      supportEmail: user.email || "support@ecolink.app",
+      email: user.email || `${user.customerIdentifier}@ecolink.app`,
+      transactionReference,
+      redirectUrl: `${process.env.FRONTEND_URL}/wallet`,
+      webhookUrl: `${process.env.BACKEND_URL}/api/webhooks/squad`,
     });
 
-    return success(res, { hash, paymentLink: data, ...data }, "Payment link created");
+    // Squad returns the checkout URL in data.data.link
+    const paymentLink =
+      data?.data?.checkout_url ||
+      data?.data?.payment_link ||
+      data?.data?.link ||
+      null;
+
+    return success(res, { paymentLink, transactionReference }, "Payment link created");
   } catch (err) {
     const { status, message, raw } = extractAxiosError(err);
     return error(res, message, status, raw);
@@ -208,7 +261,7 @@ const initiateUssd = async (req, res, next) => {
         name: user.fullName || user.phone,
         email: user.email || `${user.customerIdentifier}@ecolink.app`,
       },
-      webhookUrl: `${process.env.BACKEND_URL || "https://your-api.com"}/api/webhooks/squad`,
+      webhookUrl: `${process.env.BACKEND_URL || "https://localhost:5000"}/api/webhooks/squad`,
     });
 
     return success(res, { transactionReference, ...data }, "USSD payment initiated");
