@@ -11,9 +11,6 @@ const signToken = (id) =>
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-/**
- * POST /api/auth/register
- */
 const register = async (req, res, next) => {
   try {
     const { phone, firstName, lastName, businessType, state, lga } = req.body;
@@ -30,13 +27,7 @@ const register = async (req, res, next) => {
 
     const user = await User.findOneAndUpdate(
       { phone },
-      {
-        phone, firstName, lastName, businessType,
-        state, lga,
-        otpCode: otp,
-        otpExpiresAt,
-        isPhoneVerified: false,
-      },
+      { phone, firstName, lastName, businessType, state, lga, otpCode: otp, otpExpiresAt, isPhoneVerified: false },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
@@ -45,7 +36,7 @@ const register = async (req, res, next) => {
     return success(res, {
       phone,
       userId: user._id,
-      otp_dev_only: otp,   // remove in production
+      otp_dev_only: otp,
     }, "OTP sent to your phone number", 201);
 
   } catch (err) {
@@ -53,10 +44,6 @@ const register = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/verify-otp
- * Also generates customerIdentifier on first verification.
- */
 const verifyOtp = async (req, res, next) => {
   try {
     const { phone, otp } = req.body;
@@ -71,7 +58,7 @@ const verifyOtp = async (req, res, next) => {
     user.otpCode = undefined;
     user.otpExpiresAt = undefined;
 
-    // Generate customerIdentifier if not already set
+    // Always generate customerIdentifier at verification
     if (!user.customerIdentifier) {
       user.customerIdentifier = generateCustomerIdentifier();
     }
@@ -92,10 +79,6 @@ const verifyOtp = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/setup-pin
- * Creates CreditProfile if it doesn't exist yet.
- */
 const setupPin = async (req, res, next) => {
   try {
     const { pin, skills, languages } = req.body;
@@ -105,22 +88,24 @@ const setupPin = async (req, res, next) => {
       return error(res, "PIN must be exactly 4 digits", 400);
     }
 
-    const hashedPin = await bcrypt.hash(pin, 12);
+    // Safety net — ensure customerIdentifier always exists
+    if (!user.customerIdentifier) {
+      user.customerIdentifier = generateCustomerIdentifier();
+    }
 
+    const hashedPin = await bcrypt.hash(pin, 12);
     user.pin = hashedPin;
     user.skills = skills || [];
     user.languages = languages || [];
     user.isOnboarded = true;
     await user.save();
 
-    // Create credit profile if it doesn't exist
-    const existing = await CreditProfile.findOne({ user: user._id });
-    if (!existing) {
-      await CreditProfile.create({
-        user: user._id,
-        customerIdentifier: user.customerIdentifier,
-      });
-    }
+    // Upsert credit profile — safe even if it already exists
+    await CreditProfile.findOneAndUpdate(
+      { user: user._id },
+      { $setOnInsert: { user: user._id, customerIdentifier: user.customerIdentifier } },
+      { upsert: true, new: true }
+    );
 
     return success(res, { isOnboarded: true }, "PIN set successfully. Account is ready.");
   } catch (err) {
@@ -128,9 +113,6 @@ const setupPin = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/login
- */
 const login = async (req, res, next) => {
   try {
     const { phone, pin } = req.body;
@@ -154,9 +136,6 @@ const login = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/auth/resend-otp
- */
 const resendOtp = async (req, res, next) => {
   try {
     const { phone } = req.body;
@@ -177,9 +156,6 @@ const resendOtp = async (req, res, next) => {
   }
 };
 
-/**
- * GET /api/auth/me
- */
 const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);

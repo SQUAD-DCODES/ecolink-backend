@@ -22,7 +22,7 @@ const app = express();
 app.use(helmet());
 
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: NODE_ENV === "production" ? FRONTEND_URL : true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,

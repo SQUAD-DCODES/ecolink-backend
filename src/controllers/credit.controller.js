@@ -6,12 +6,34 @@ const { success, error, generateTransactionRef, nairaToKobo, koboToNaira, extrac
 
 const getCreditScore = async (req, res, next) => {
   try {
-    // Create profile if it doesn't exist yet (handles existing users)
-    let profile = await CreditProfile.findOne({ user: req.user._id });
+    const user = req.user;
+
+    let profile = await CreditProfile.findOne({ user: user._id });
+
     if (!profile) {
+      // If no customerIdentifier yet, return safe zero profile — never crash
+      if (!user.customerIdentifier) {
+        return success(res, {
+          score: 0,
+          tier: "unscored",
+          maxLoanNaira: "0.00",
+          factors: {
+            paymentReliability: { label: "Payment Reliability", score: 0, weight: 35 },
+            vocalReputation: { label: "Vocal Reputation", score: 0, weight: 25 },
+            savingsConsistency: { label: "Savings Consistency", score: 0, weight: 20 },
+            gigCompletion: { label: "Gig Completion", score: 0, weight: 10 },
+            identityVerification: { label: "Identity Verified", score: 0, weight: 10 },
+          },
+          totalTransactions: 0,
+          lastUpdated: null,
+          scoreHistory: [],
+        });
+      }
+
+      // Create profile for users who completed onboarding before this fix
       profile = await CreditProfile.create({
-        user: req.user._id,
-        customerIdentifier: req.user.customerIdentifier,
+        user: user._id,
+        customerIdentifier: user.customerIdentifier,
       });
     }
 
@@ -38,7 +60,7 @@ const getCreditScore = async (req, res, next) => {
       },
       identityVerification: {
         label: "Identity Verified",
-        score: req.user.kycStatus === "verified" ? 100 : 0,
+        score: user.kycStatus === "verified" ? 100 : 0,
         weight: 10,
       },
     };
@@ -53,19 +75,19 @@ const getCreditScore = async (req, res, next) => {
       scoreHistory: profile.scoreHistory.slice(-10),
     });
   } catch (err) {
+    console.error("[Credit] getCreditScore error:", err.message);
     return error(res, err.message, 500);
   }
 };
 
-/**
- * GET /api/credit/offers
- * Loan offers the user qualifies for based on credit tier.
- * Displayed as offer cards on the /credit page.
- */
 const getLoanOffers = async (req, res, next) => {
   try {
     const profile = await CreditProfile.findOne({ user: req.user._id });
-    if (!profile) return error(res, "Credit profile not found", 404);
+
+    // Return empty offers instead of 404 if no profile
+    if (!profile) {
+      return success(res, { tier: "unscored", offers: [] });
+    }
 
     const offers = {
       unscored: [],
@@ -95,17 +117,13 @@ const getLoanOffers = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/credit/apply
- * Apply for a micro-loan — 3-step flow on /credit/apply.
- */
 const applyForLoan = async (req, res, next) => {
   try {
-    const { amount, purpose, durationDays, repaymentPlan } = req.body;
+    const { amount, purpose, durationDays } = req.body;
     const user = req.user;
 
     const profile = await CreditProfile.findOne({ user: user._id });
-    if (!profile) return error(res, "Credit profile not found", 404);
+    if (!profile) return error(res, "Complete onboarding to access credit", 400);
     if (profile.tier === "unscored") return error(res, "Build your credit score first by completing transactions", 400);
 
     const amountKobo = nairaToKobo(amount);
@@ -113,7 +131,6 @@ const applyForLoan = async (req, res, next) => {
       return error(res, `Maximum loan for your tier is ₦${koboToNaira(profile.maxLoanEligibleKobo)}`, 400);
     }
 
-    // Check for existing active loan
     const activeLoan = await Loan.findOne({
       borrower: user._id,
       status: { $in: ["approved", "disbursed", "repaying"] },
@@ -142,10 +159,6 @@ const applyForLoan = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/credit/loans/:loanId/disburse
- * Disburse approved loan to user's Squad wallet via transfer.
- */
 const disburseLoan = async (req, res, next) => {
   try {
     const loan = await Loan.findById(req.params.loanId).populate("borrower");
@@ -164,7 +177,7 @@ const disburseLoan = async (req, res, next) => {
       accountNumber: borrower.virtualAccountNumber,
       accountName: borrower.fullName || borrower.phone,
       amount: loan.principalAmount,
-      remark: `EcoLink micro-loan disbursement`,
+      remark: "EcoLink micro-loan disbursement",
       transactionReference: ref,
     });
 
@@ -185,10 +198,6 @@ const disburseLoan = async (req, res, next) => {
   }
 };
 
-/**
- * GET /api/credit/loans
- * Get user's loan history.
- */
 const getMyLoans = async (req, res, next) => {
   try {
     const loans = await Loan.find({ borrower: req.user._id }).sort({ createdAt: -1 });
