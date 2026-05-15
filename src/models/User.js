@@ -68,6 +68,16 @@ const userSchema = new mongoose.Schema(
       enum: ["unscored", "bronze", "silver", "gold", "platinum"],
       default: "unscored",
     },
+
+    // Reputation
+    reputationScore: { type: Number, default: 0 },
+    reputationTier: {
+      type: String,
+      enum: ["Community", "Verified", "Trusted"],
+      default: "Community",
+    },
+    vouchCount: { type: Number, default: 0 },
+    lastReputationUpdatedAt: { type: Date },
   },
   { timestamps: true }
 );

@@ -13,4 +13,8 @@ module.exports = {
   MONGODB_URI: process.env.MONGODB_URI,
   JWT_SECRET: process.env.JWT_SECRET || "ecolink_dev_secret",
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
+
+  GROK_API_KEY: process.env.GROK_API_KEY,
+  GROK_API_URL: process.env.GROK_API_URL || "https://api.x.ai/v1/chat/completions",
+  GROK_MODEL: process.env.GROK_MODEL || "grok-2-latest",
 };

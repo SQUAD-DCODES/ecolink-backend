@@ -28,10 +28,22 @@ npm start
 | `SQUAD_BASE_URL` | `https://sandbox-api-d.squadco.com` (test) or `https://api-d.squadco.com` (live) |
 | `SQUAD_MERCHANT_ID` | Your Squad merchant ID — required for transfer references |
 | `FRONTEND_URL` | Next.js frontend URL for CORS |
+| `GROK_API_KEY` | Grok API key for voice-vouch analysis |
 
 ---
 
 ## API Reference
+
+### Auth (`/api/auth`)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/register` | Start registration with phone number (OTP issued) |
+| POST | `/verify-otp` | Verify OTP and issue token |
+| POST | `/resend-otp` | Resend OTP |
+| POST | `/login` | Login with phone + PIN |
+| POST | `/setup-pin` | Set 4-digit PIN (requires auth) |
+| GET | `/me` | Get current user (requires auth) |
 
 ### Health
 ```
@@ -138,6 +150,38 @@ https://your-domain.com/api/webhooks/squad
 
 ---
 
+### Vouch (`/api/vouch`) — requires auth
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/` | Submit a vocal vouch |
+| GET | `/received` | Vouches received by current user |
+| GET | `/given` | Vouches given by current user |
+| GET | `/user/:userId` | Vouches for a specific user |
+
+**Submit Vouch**
+```json
+POST /api/vouch
+{
+  "recipientPhone": "08099999999",
+  "audioUrl": "https://example.com/audio.mp3",
+  "durationSeconds": 42,
+  "language": "english",
+  "transcript": "He always pays back on time and is reliable in the market."
+}
+```
+
+---
+
+### Reputation (`/api/reputation`) — requires auth
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/me` | Reputation summary for current user |
+| GET | `/:userId` | Reputation summary for a user |
+
+---
+
 ## Squad API Integration Map
 
 | EcoLink Feature | Squad API Used |
@@ -163,16 +207,24 @@ ecolink-backend/
 │   ├── app.js                 # Express app, middleware, routes
 │   ├── config/index.js        # Environment config
 │   ├── services/
+│   │   ├── grok.service.js    # Grok AI vouch analysis
+│   │   ├── reputation.service.js
 │   │   └── squad.service.js   # All Squad API calls (single source of truth)
 │   ├── controllers/
 │   │   ├── accounts.controller.js
+│   │   ├── auth.controller.js
 │   │   ├── payments.controller.js
+│   │   ├── reputation.controller.js
 │   │   ├── transfers.controller.js
+│   │   ├── vouch.controller.js
 │   │   └── webhooks.controller.js
 │   ├── routes/
 │   │   ├── accounts.routes.js
+│   │   ├── auth.routes.js
 │   │   ├── payments.routes.js
+│   │   ├── reputation.routes.js
 │   │   ├── transfers.routes.js
+│   │   ├── vouch.routes.js
 │   │   └── webhooks.routes.js
 │   ├── middleware/
 │   │   ├── errorHandler.js

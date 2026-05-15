@@ -2,6 +2,14 @@ const Vouch = require("../models/Vouch");
 const User = require("../models/User");
 const CreditProfile = require("../models/CreditProfile");
 const { success, error } = require("../utils/helpers");
+const { analyzeVouchTranscript } = require("../services/grok.service");
+const { updateUserReputation } = require("../services/reputation.service");
+
+const average = (values) => {
+  if (!values.length) return 0;
+  const sum = values.reduce((total, val) => total + val, 0);
+  return sum / values.length;
+};
 
 /**
  * POST /api/vouch
@@ -9,7 +17,10 @@ const { success, error } = require("../utils/helpers");
  */
 const submitVouch = async (req, res, next) => {
   try {
-    const { recipientPhone, audioUrl, durationSeconds, language } = req.body;
+    const { recipientPhone, audioUrl, durationSeconds, language, transcript } = req.body;
+
+    if (!recipientPhone) return error(res, "Recipient phone is required", 400);
+    if (!audioUrl) return error(res, "Audio URL is required", 400);
 
     const recipient = await User.findOne({ phone: recipientPhone });
     if (!recipient) return error(res, "User not found with that phone number", 404);
@@ -27,8 +38,11 @@ const submitVouch = async (req, res, next) => {
 
     const vouch = await Vouch.create({
       voucher: req.user._id,
+      voucherUserId: req.user._id,
       voucherPhone: req.user.phone,
       recipient: recipient._id,
+      recipientUserId: recipient._id,
+      recipientPhone: recipient.phone,
       recipientCustomerIdentifier: recipient.customerIdentifier,
       audioUrl,
       durationSeconds,
@@ -42,14 +56,29 @@ const submitVouch = async (req, res, next) => {
       { $inc: { vouchesReceived: 1 } }
     );
 
-    // TODO: Send audio to AI processing queue here
-    // await processVouchAudio(vouch._id, audioUrl);
+    const analysis = await analyzeVouchTranscript(transcript || "");
+    const baseScore = Math.round(average((analysis.signals || []).map((s) => s.score)));
+
+    vouch.signals = analysis.signals;
+    vouch.aiSummary = analysis.summary;
+    vouch.aiTranscript = analysis.transcript;
+    vouch.transcript = analysis.transcript;
+    vouch.trustLevel = analysis.trustLevel;
+    vouch.confidence = analysis.confidence;
+    vouch.trustScore = Number.isFinite(baseScore) ? baseScore : 0;
+    vouch.aiProcessed = true;
+    vouch.aiProcessedAt = new Date();
+    vouch.status = "processed";
+    await vouch.save();
+
+    await updateUserReputation(recipient._id);
 
     return success(res, {
       vouchId: vouch._id,
       recipient: recipient.fullName || recipient.phone,
-      status: "pending",
-      message: "Vouch submitted. AI processing will extract trust signals shortly.",
+      status: vouch.status,
+      trustLevel: vouch.trustLevel,
+      trustScore: vouch.trustScore,
     }, "Vouch recorded", 201);
   } catch (err) {
     return error(res, err.message, 500);
