@@ -17,6 +17,7 @@ const mapRecentVouches = (vouches, limit = 6) => {
     voucherName: buildVoucherName(vouch.voucher),
     language: vouch.language,
     aiSummary: vouch.aiSummary || null,
+    transcript: vouch.aiTranscript || vouch.transcript || null,
     createdAt: vouch.createdAt,
   }));
 };

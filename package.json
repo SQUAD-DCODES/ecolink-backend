@@ -1,11 +1,11 @@
 {
   "name": "ecolink-backend",
   "version": "1.0.0",
-  "description": "EcoLink — Intelligent Informal Economy OS. Backend API powered by Squad.",
+  "description": "EcoLink \u2014 Intelligent Informal Economy OS. Backend API powered by Squad.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node init && node server.js",
+    "dev": "node init && nodemon server.js",
     "test": "echo \"Tests coming soon\" && exit 0"
   },
   "keywords": [],
