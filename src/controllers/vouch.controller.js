@@ -29,12 +29,14 @@ const submitVouch = async (req, res, next) => {
       return error(res, "You cannot vouch for yourself", 400);
     }
 
-    // Prevent duplicate vouches
-    const existing = await Vouch.findOne({
+    // Allow up to 3 vouches per voucher-recipient pair
+    const vouchCount = await Vouch.countDocuments({
       voucher: req.user._id,
       recipient: recipient._id,
     });
-    if (existing) return error(res, "You have already vouched for this person", 409);
+    if (vouchCount >= 3) {
+      return error(res, "You have reached the maximum of 3 vouches for this person", 409);
+    }
 
     const vouch = await Vouch.create({
       voucher: req.user._id,
