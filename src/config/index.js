@@ -6,7 +6,7 @@ module.exports = {
 
   SQUAD: {
     SECRET_KEY: process.env.SQUAD_SECRET_KEY,
-    BASE_URL: process.env.SQUAD_BASE_URL || "https://sandbox-api-d.squadco.com",
+    BASE_URL: process.env.SQUAD_BASE_URL || "https://api-d.squadco.com",
     MERCHANT_ID: process.env.SQUAD_MERCHANT_ID,
   },
 
