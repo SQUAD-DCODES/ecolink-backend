@@ -15,6 +15,7 @@ const savingsRoutes = require("./routes/savings.routes");
 const creditRoutes = require("./routes/credit.routes");
 const profileRoutes = require("./routes/profile.routes");
 const vouchRoutes = require("./routes/vouch.routes");
+const reputationRoutes = require("./routes/reputation.routes");
 const webhooksRoutes = require("./routes/webhooks.routes");
 
 const app = express();
@@ -65,6 +66,7 @@ app.use("/api/savings", savingsRoutes);
 app.use("/api/credit", creditRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/vouch", vouchRoutes);
+app.use("/api/reputation", reputationRoutes);
 app.use("/api/webhooks", webhooksRoutes);
 
 app.use(notFound);

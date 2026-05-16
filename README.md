@@ -10,24 +10,32 @@ EcoLink is an intelligent economic platform built to solve one of Nigeria's most
 
 | Challenge | EcoLink's Answer |
 |---|---|
-| Informal traders invisible to banks | Digital onboarding via phone number only — no formal documents required to start |
-| Youth unemployment with no matching system | AI job matching by skills, location, language, and economic context |
-| No credit history = no credit access | Alternative credit scoring from Squad transaction data, Ajo savings behaviour, vocal reputation, and daily activity |
-| Rotating savings groups (Ajo/Esusu) are fraud-prone | Squad virtual accounts hold the pot — disbursements are programmatic, no human can run away with the money |
-| Cash economy = no financial record | Every Squad transaction builds a permanent, verifiable economic identity |
+| `PORT` | Server port (default: 5000) |
+| `SQUAD_SECRET_KEY` | From Squad dashboard (sandbox or live) |
+| `SQUAD_BASE_URL` | `https://sandbox-api-d.squadco.com` (test) or `https://api-d.squadco.com` (live) |
+| `SQUAD_MERCHANT_ID` | Your Squad merchant ID — required for transfer references |
+| `FRONTEND_URL` | Next.js frontend URL for CORS |
+| `GROK_API_KEY` | Grok API key for voice-vouch analysis |
 
 ---
 
 ## Judging Criteria Alignment
 
-| Criterion | Weight | How EcoLink Addresses It |
+### Auth (`/api/auth`)
+
+| Method | Path | Description |
 |---|---|---|
-| **Squad API Integration** | 25% | Squad is the transactional backbone — virtual accounts, webhooks, USSD payments, card charges, transfers, and payment links all use Squad. Not bolted on — every financial action goes through Squad. |
-| **Technical Architecture** | 20% | Node.js + Express + MongoDB + Squad. AI matching engine scores jobs against user skills and location. Credit scoring engine updates in real time on every Squad webhook event. |
-| **Problem Understanding & Innovation** | 20% | Ajo/Esusu digitization, Vocal Reputation (voice-based community trust signals), Daily Hustle Check-in, Trade Circle marketplace — all built around how Nigerians actually live and work. |
-| **Economic Viability & Scalability** | 20% | Transaction fee share, loan origination commissions, premium analytics for lenders. Architecture scales from 10,000 users to national deployment without structural changes. |
-| **Presentation & Communication** | 15% | Live working prototype with real Squad API integration, MongoDB persistence, JWT auth, and a full Next.js frontend. |
-| **Impact Potential (Bonus)** | 10% | 80M+ addressable users. Every transaction builds credit history that was previously invisible. Ajo digitization eliminates savings fraud. Vocal reputation gives people a credit identity on day one. |
+| POST | `/register` | Start registration with phone number (OTP issued) |
+| POST | `/verify-otp` | Verify OTP and issue token |
+| POST | `/resend-otp` | Resend OTP |
+| POST | `/login` | Login with phone + PIN |
+| POST | `/setup-pin` | Set 4-digit PIN (requires auth) |
+| GET | `/me` | Get current user (requires auth) |
+
+### Health
+```
+GET /health
+```
 
 ---
 
@@ -119,20 +127,53 @@ A structured notice board where traders post what they have and buyers post what
 └─────────────────────────────────────────────────────┘
 ```
 
-### Credit Scoring Loop
+---
+
+### Vouch (`/api/vouch`) — requires auth
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/` | Submit a vocal vouch |
+| GET | `/received` | Vouches received by current user |
+| GET | `/given` | Vouches given by current user |
+| GET | `/user/:userId` | Vouches for a specific user |
+
+**Submit Vouch**
+```json
+POST /api/vouch
+{
+  "recipientPhone": "08099999999",
+  "audioUrl": "https://example.com/audio.mp3",
+  "durationSeconds": 42,
+  "language": "english",
+  "transcript": "He always pays back on time and is reliable in the market."
+}
 ```
-User registers → Squad virtual account created
-     ↓
-User transacts (pay, receive, contribute to Ajo)
-     ↓
-Squad fires webhook → Transaction saved to MongoDB
-     ↓
-Credit engine updates: score, tier, max loan eligibility
-     ↓
-Better score → Higher loan limits → More opportunities
-     ↓
-More transactions → Better score (self-reinforcing loop)
-```
+
+---
+
+### Reputation (`/api/reputation`) — requires auth
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/me` | Reputation summary for current user |
+| GET | `/:userId` | Reputation summary for a user |
+
+---
+
+## Squad API Integration Map
+
+| EcoLink Feature | Squad API Used |
+|---|---|
+| User onboarding | Virtual Account (Customer Model) |
+| Trader onboarding | Virtual Account (Business Model) |
+| Receive Ajo contributions | Virtual Account + Webhooks |
+| Disburse micro-loans | Transfer API |
+| Pay gig workers | Transfer API |
+| Feature-phone payments | USSD Direct API |
+| Card payments | Direct Card API |
+| Credit score signals | Transaction history from Virtual Account API |
+| Balance management | Ledger Balance API |
 
 ---
 
@@ -147,30 +188,26 @@ ecolink-backend/
 │   │   ├── index.js                 # Environment variables
 │   │   └── database.js              # MongoDB connection
 │   ├── services/
-│   │   └── squad.service.js         # ALL Squad API calls — single source of truth
+│   │   ├── grok.service.js    # Grok AI vouch analysis
+│   │   ├── reputation.service.js
+│   │   └── squad.service.js   # All Squad API calls (single source of truth)
 │   ├── controllers/
-│   │   ├── auth.controller.js       # Register, OTP, PIN setup, login
-│   │   ├── wallet.controller.js     # Balance, transactions, send, payment links, USSD
-│   │   ├── accounts.controller.js   # Squad virtual account creation
-│   │   ├── jobs.controller.js       # Post, list (AI matched), apply, hire, complete
-│   │   ├── savings.controller.js    # Ajo group create, join, contribute, disburse
-│   │   ├── credit.controller.js     # Credit score, loan offers, apply, disburse
-│   │   ├── profile.controller.js    # Edit profile, KYC, daily check-in
-│   │   ├── vouch.controller.js      # Submit vouch, list received/given
-│   │   ├── payments.controller.js   # Card charge, USSD, bank debit
-│   │   ├── transfers.controller.js  # Payout transfers, requery
-│   │   └── webhooks.controller.js   # Squad webhook handler + credit signal updater
+│   │   ├── accounts.controller.js
+│   │   ├── auth.controller.js
+│   │   ├── payments.controller.js
+│   │   ├── reputation.controller.js
+│   │   ├── transfers.controller.js
+│   │   ├── vouch.controller.js
+│   │   └── webhooks.controller.js
 │   ├── routes/
 │   │   ├── auth.routes.js
 │   │   ├── wallet.routes.js
 │   │   ├── accounts.routes.js
-│   │   ├── jobs.routes.js
-│   │   ├── savings.routes.js
-│   │   ├── credit.routes.js
-│   │   ├── profile.routes.js
-│   │   ├── vouch.routes.js
+│   │   ├── auth.routes.js
 │   │   ├── payments.routes.js
+│   │   ├── reputation.routes.js
 │   │   ├── transfers.routes.js
+│   │   ├── vouch.routes.js
 │   │   └── webhooks.routes.js
 │   ├── models/
 │   │   ├── User.js                  # Phone auth, skills, KYC, credit tier
