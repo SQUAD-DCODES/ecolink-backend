@@ -21,22 +21,14 @@ EcoLink is an intelligent economic platform built to solve one of Nigeria's most
 ## Judging Criteria Alignment
  
 | Criterion | Weight | How EcoLink Addresses It |
-
-### Auth (`/api/auth`)
-
-| Method | Path | Description |
 |---|---|---|
-| POST | `/register` | Start registration with phone number (OTP issued) |
-| POST | `/verify-otp` | Verify OTP and issue token |
-| POST | `/resend-otp` | Resend OTP |
-| POST | `/login` | Login with phone + PIN |
-| POST | `/setup-pin` | Set 4-digit PIN (requires auth) |
-| GET | `/me` | Get current user (requires auth) |
+| **Squad API Integration** | 25% | Squad is the transactional backbone — virtual accounts, webhooks, USSD payments, card charges, transfers, and payment links all use Squad. Not bolted on — every financial action goes through Squad. |
+| **Technical Architecture** | 20% | Node.js + Express + MongoDB + Squad. AI matching engine scores jobs against user skills and location. Credit scoring engine updates in real time on every Squad webhook event. |
+| **Problem Understanding & Innovation** | 20% | Ajo/Esusu digitization, Vocal Reputation (voice-based community trust signals), Daily Hustle Check-in, Trade Circle marketplace — all built around how Nigerians actually live and work. |
+| **Economic Viability & Scalability** | 20% | Transaction fee share, loan origination commissions, premium analytics for lenders. Architecture scales from 10,000 users to national deployment without structural changes. |
+| **Presentation & Communication** | 15% | Live working prototype with real Squad API integration, MongoDB persistence, JWT auth, and a full Next.js frontend. |
+| **Impact Potential (Bonus)** | 10% | 80M+ addressable users. Every transaction builds credit history that was previously invisible. Ajo digitization eliminates savings fraud. Vocal reputation gives people a credit identity on day one. |
 
-### Health
-```
-GET /health
-```
 
 ---
 
