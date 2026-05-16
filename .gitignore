@@ -1,9 +1,4 @@
 # Environment variables (MOST IMPORTANT)
-.env
-.env.local
-.env.production
-.env.development
-.env.test
 
 # Node modules
 node_modules/
@@ -28,7 +23,6 @@ Thumbs.db
 Desktop.ini
 
 # IDE files
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -67,3 +61,4 @@ coverage/
 *.seed
 *.pid
 *.gz
+config.bat

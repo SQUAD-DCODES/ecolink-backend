@@ -157,21 +157,30 @@ const transferFunds = async ({
   transactionReference,
   currencyId = "NGN",
 }) => {
-  // Enforce Squad's requirement: reference must include merchant ID
-  const ref = transactionReference.includes(SQUAD.MERCHANT_ID)
-    ? transactionReference
-    : `${SQUAD.MERCHANT_ID}_${transactionReference}`;
+  try {
+    const ref = transactionReference.includes(SQUAD.MERCHANT_ID)
+      ? transactionReference
+      : `${SQUAD.MERCHANT_ID}_${transactionReference}`;
 
-  const response = await squadClient.post("/payout/transfer", {
-    bank_code: bankCode,
-    account_number: accountNumber,
-    account_name: accountName,
-    amount: String(amount),
-    remark,
-    transaction_reference: ref,
-    currency_id: currencyId,
-  });
-  return response.data;
+    const response = await squadClient.post("/payout/transfer", {
+      bank_code: bankCode,
+      account_number: accountNumber,
+      account_name: accountName,
+      amount: String(amount),
+      remark,
+      transaction_reference: ref,
+      currency_id: currencyId,
+    });
+
+    return response.data;
+  } catch (err) {
+    console.error(
+      "SQUAD TRANSFER ERROR:",
+      err.response?.data || err.message
+    );
+
+    throw err;
+  }
 };
 
 /**
@@ -350,7 +359,7 @@ const deleteWebhookErrorLog = async (transactionRef) => {
 const validateWebhookSignatureV1 = (rawBody, signatureHeader) => {
   const hash = crypto
     .createHmac("sha512", SQUAD.SECRET_KEY)
-    .update(JSON.stringify(rawBody))
+    .update(rawBody)
     .digest("hex")
     .toUpperCase();
   return hash === signatureHeader?.toUpperCase();
@@ -378,30 +387,31 @@ const validateWebhookSignatureV2 = (payload, signatureHeader) => {
   return hash === signatureHeader?.toLowerCase();
 };
 
+const getBanks = async () => {
+  const response = await squadClient.get("/bank");
+  return response.data;
+};
+
 /**
  * Create a payment link.
  * Used in /wallet/receive — generates a shareable link, no recipient app needed.
  */
 const createPaymentLink = async ({
-  name,
-  hash,
   amount,
-  currencyId = "NGN",
-  description,
-  redirectLink,
-  supportEmail,
-  isRecurring = false,
+  email,
+  currency = "NGN",
+  transactionReference,
+  redirectUrl,
 }) => {
-  const response = await squadClient.post("/payment-link/create", {
-    name,
-    hash,
-    amount,
-    currency_id: currencyId,
-    description,
-    redirect_link: redirectLink,
-    support_email: supportEmail,
-    is_recurring: isRecurring,
+  const response = await squadClient.post("/transaction/initiate", {
+    amount: String(amount),
+    email,
+    currency,
+    initiate_type: "inline",
+    transaction_ref: transactionReference,
+    callback_url: redirectUrl,
   });
+
   return response.data;
 };
 

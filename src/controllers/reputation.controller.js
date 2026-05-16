@@ -62,13 +62,6 @@ const getUserReputation = async (req, res, next) => {
 
     const aggregate = computeReputationFromVouches(vouches);
 
-    await User.findByIdAndUpdate(userId, {
-      reputationScore: aggregate.overallScore,
-      reputationTier: aggregate.tier,
-      vouchCount: aggregate.vouchCount,
-      lastReputationUpdatedAt: new Date(),
-    });
-
     return success(res, {
       overallScore: aggregate.overallScore,
       tier: aggregate.tier,
